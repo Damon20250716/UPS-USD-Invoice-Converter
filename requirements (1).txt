@@ -1,22 +1,12 @@
-# Streamlit app runtime
 streamlit
-
-# PDF parsing + table extraction / text extraction
 pdfplumber
 pdfminer.six
 Pillow
-
-# Data handling / Excel
 pandas
 openpyxl
-
-# PDF generation / overlay
 reportlab
 PyMuPDF
-
-# Optional OCR (requires system packages: tesseract & poppler)
+# Optional (only if you enable OCR later; also requires system packages)
 pdf2image
 pytesseract
-
-# Helpers (optional)
 python-dotenv
