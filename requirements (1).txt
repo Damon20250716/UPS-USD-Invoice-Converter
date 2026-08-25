@@ -1,4 +1,4 @@
-streamlit
+streamlit>=1.20
 pdfplumber
 pdfminer.six
 Pillow
@@ -6,7 +6,7 @@ pandas
 openpyxl
 reportlab
 PyMuPDF
-# Optional (only if you enable OCR later; also requires system packages)
+# Optional OCR (requires system packages: tesseract & poppler)
 pdf2image
 pytesseract
 python-dotenv
