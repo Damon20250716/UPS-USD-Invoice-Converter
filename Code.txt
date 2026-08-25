@@ -1,0 +1,545 @@
+import streamlit as st
+2
+import fitz
+3
+import pandas as pd
+4
+import re
+5
+from io import BytesIO
+6
+from openpyxl import Workbook
+7
+ 
+8
+# =====================================
+9
+# PAGE CONFIG
+10
+# =====================================
+11
+ 
+12
+st.set_page_config(
+13
+page_title="UPS Invoice USD Converter",
+14
+layout="wide"
+15
+)
+16
+ 
+17
+st.title("UPS Invoice USD Converter")
+18
+ 
+19
+st.markdown(
+20
+"""
+21
+Upload a UPS Invoice PDF,
+22
+enter a fixed exchange rate,
+23
+and convert invoice values into USD.
+24
+"""
+25
+)
+26
+ 
+27
+# =====================================
+28
+# FILE UPLOAD
+29
+# =====================================
+30
+ 
+31
+uploaded_file = st.file_uploader(
+32
+"Upload UPS Invoice PDF",
+33
+type=["pdf"]
+34
+)
+35
+ 
+36
+exchange_rate = st.number_input(
+37
+"Exchange Rate (Local Currency per 1 USD)",
+38
+min_value=0.0001,
+39
+value=150.0000,
+40
+format="%.4f"
+41
+)
+42
+ 
+43
+# =====================================
+44
+# FUNCTIONS
+45
+# =====================================
+46
+ 
+47
+def extract_pdf_text(pdf_file):
+48
+ 
+49
+pdf_bytes = pdf_file.read()
+50
+ 
+51
+doc = fitz.open(
+52
+stream=pdf_bytes,
+53
+filetype="pdf"
+54
+)
+55
+ 
+56
+text = ""
+57
+ 
+58
+for page in doc:
+59
+text += page.get_text()
+60
+ 
+61
+return text
+62
+ 
+63
+ 
+64
+def detect_currency(text):
+65
+ 
+66
+if "JPY" in text:
+67
+return "JPY"
+68
+ 
+69
+if "KRW" in text:
+70
+return "KRW"
+71
+ 
+72
+if "AUD" in text:
+73
+return "AUD"
+74
+ 
+75
+if "$" in text:
+76
+return "AUD"
+77
+ 
+78
+return "UNKNOWN"
+79
+ 
+80
+ 
+81
+def extract_amount(text, field_name):
+82
+ 
+83
+pattern = (
+84
+re.escape(field_name)
+85
++ r".{0,50}?([0-9,]+(?:\.[0-9]+)?)"
+86
+)
+87
+ 
+88
+match = re.search(
+89
+pattern,
+90
+text,
+91
+re.IGNORECASE | re.DOTALL
+92
+)
+93
+ 
+94
+if match:
+95
+ 
+96
+try:
+97
+return float(
+98
+match.group(1).replace(",", "")
+99
+)
+100
+except:
+101
+return None
+102
+ 
+103
+return None
+104
+ 
+105
+ 
+106
+def convert_to_usd(
+107
+amount,
+108
+exchange_rate
+109
+):
+110
+ 
+111
+if amount is None:
+112
+return None
+113
+ 
+114
+return round(
+115
+amount / exchange_rate,
+116
+2
+117
+)
+118
+ 
+119
+ 
+120
+def build_audit_excel(df):
+121
+ 
+122
+wb = Workbook()
+123
+ 
+124
+ws = wb.active
+125
+ 
+126
+ws.title = "Audit"
+127
+ 
+128
+ws.append(
+129
+[
+130
+"Field",
+131
+"Original Amount",
+132
+"USD Amount"
+133
+]
+134
+)
+135
+ 
+136
+for _, row in df.iterrows():
+137
+ 
+138
+ws.append(
+139
+[
+140
+row["Field"],
+141
+row["Original Amount"],
+142
+row["USD Amount"]
+143
+]
+144
+)
+145
+ 
+146
+excel_buffer = BytesIO()
+147
+ 
+148
+wb.save(excel_buffer)
+149
+ 
+150
+excel_buffer.seek(0)
+151
+ 
+152
+return excel_buffer
+153
+ 
+154
+ 
+155
+# =====================================
+156
+# CONVERT BUTTON
+157
+# =====================================
+158
+ 
+159
+if st.button("Convert Invoice"):
+160
+ 
+161
+if uploaded_file is None:
+162
+ 
+163
+st.error(
+164
+"Please upload a PDF invoice."
+165
+)
+166
+ 
+167
+else:
+168
+ 
+169
+text = extract_pdf_text(
+170
+uploaded_file
+171
+)
+172
+ 
+173
+currency = detect_currency(text)
+174
+ 
+175
+st.success(
+176
+f"Detected Currency: {currency}"
+177
+)
+178
+ 
+179
+fields = [
+180
+ 
+181
+"Total Amount Due",
+182
+ 
+183
+"Total Charges",
+184
+ 
+185
+"Charges",
+186
+ 
+187
+"GST",
+188
+ 
+189
+"VAT",
+190
+ 
+191
+"Non-Taxable Charges",
+192
+ 
+193
+"Taxable Charges",
+194
+ 
+195
+"Disbursement Fee",
+196
+ 
+197
+"Security Fee",
+198
+ 
+199
+"Customs Entry Fee"
+200
+ 
+201
+]
+202
+ 
+203
+results = []
+204
+ 
+205
+for field in fields:
+206
+ 
+207
+amount = extract_amount(
+208
+text,
+209
+field
+210
+)
+211
+ 
+212
+if amount is not None:
+213
+ 
+214
+usd = convert_to_usd(
+215
+amount,
+216
+exchange_rate
+217
+)
+218
+ 
+219
+results.append(
+220
+[
+221
+field,
+222
+amount,
+223
+usd
+224
+]
+225
+)
+226
+ 
+227
+if len(results) == 0:
+228
+ 
+229
+st.warning(
+230
+"No invoice amounts were detected."
+231
+)
+232
+ 
+233
+else:
+234
+ 
+235
+df = pd.DataFrame(
+236
+results,
+237
+columns=[
+238
+"Field",
+239
+"Original Amount",
+240
+"USD Amount"
+241
+]
+242
+)
+243
+ 
+244
+st.subheader(
+245
+"Conversion Results"
+246
+)
+247
+ 
+248
+st.dataframe(
+249
+df,
+250
+use_container_width=True
+251
+)
+252
+ 
+253
+total_usd = (
+254
+df["USD Amount"]
+255
+.fillna(0)
+256
+.sum()
+257
+)
+258
+ 
+259
+st.metric(
+260
+"Total USD Value",
+261
+f"${total_usd:,.2f}"
+262
+)
+263
+ 
+264
+audit_excel = (
+265
+build_audit_excel(df)
+266
+)
+267
+ 
+268
+st.download_button(
+269
+label="Download Audit Excel",
+270
+data=audit_excel,
+271
+file_name="Invoice_Audit.xlsx",
+272
+mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+273
+)
