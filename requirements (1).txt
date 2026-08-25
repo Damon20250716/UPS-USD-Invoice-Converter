@@ -1,4 +1,9 @@
-streamlit
-pymupdf
+streamlit>=1.20
+pdfplumber
 pandas
-openpyxl
+reportlab
+# Optional / future:
+# pdf2image
+# pytesseract
+# PyMuPDF
+# openpyxl
