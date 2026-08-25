@@ -1,5 +1,5 @@
-1 streamlit
-2 pymupdf
-3 openpyxl
-4 pandas
-5 reportlab
+streamlit
+pymupdf
+openpyxl
+pandas
+reportlab
